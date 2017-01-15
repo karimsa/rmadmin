@@ -225,6 +225,7 @@
          $scope.editItemName = 
         $scope.editGroupName =
          $scope.editOpScript =
+            $scope.resSearch = 
           $scope.editOpGroup = ''
 
       $scope.opProgress = 0
