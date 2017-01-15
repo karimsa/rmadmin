@@ -236,13 +236,20 @@
                   </select>
                 </div>
               </div>
+
+              <div class="form-group" ng-show="targetHost && editable.results[targetHost] && editable.results[targetHost].status === 'Successful'">
+                <label for="resSearch" class="control-label col-xs-3">Search results</label>
+                <div class="col-xs-8">
+                  <input type="text" class="form-control" name="resSearch" id="resSearch" ng-model="resSearch">
+                </div>
+              </div>
             </form>
 
             <div ng-if="targetHost && editable.results[targetHost] && editable.results[targetHost].status === 'Failed'" class="alert alert-danger alert col-xs-10 col-xs-offset-1" role="alert">
               <strong>Failure</strong> <span ng-bind="editable.results[targetHost].message"></span>
             </div>
 
-            <pre ng-if="targetHost && editable.results[targetHost] && editable.results[targetHost].status === 'Successful'" class="results-view col-xs-10 col-xs-offset-1" ng-bind="editable.results[targetHost].message"></pre>
+            <pre ng-if="targetHost && editable.results[targetHost] && editable.results[targetHost].status === 'Successful'" class="results-view col-xs-10 col-xs-offset-1" ng-bind="parseResponse(editable.results[targetHost].message, resSearch)"></pre>
             <div class="clearfix"></div>
           </div>
 

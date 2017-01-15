@@ -425,6 +425,12 @@
       $scope.editOpState = 'results'
     }
 
+    $scope.resSearch = ''
+    $scope.parseResponse = (text, pttn) =>
+      text.split(/\r?\n/g).filter(line =>
+        new RegExp(pttn, 'gi').test(line)
+      ).join('\n')
+
     /**
      * Batch editing.
      */
