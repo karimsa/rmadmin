@@ -26,13 +26,13 @@
         <div class="collapse navbar-collapse" id="nav">
           <ul class="navbar-nav nav navbar-right">
             <li ng-class="{ 'active': state === 'devices' }">
-              <a ng-click="state = 'devices'">Devices</a>
+              <a ng-click="state = 'devices' ; hostSearch = ''">Devices</a>
             </li>
             <li ng-class="{ 'active': state === 'scripts' }">
-              <a ng-click="state = 'scripts'">Scripts</a>
+              <a ng-click="state = 'scripts' ; hostSearch = ''">Scripts</a>
             </li>
             <li ng-class="{ 'active': state === 'operations' }">
-              <a ng-click="state = 'operations'">Operations</a>
+              <a ng-click="state = 'operations' ; hostSearch = ''">Operations</a>
             </li>
           </ul>
         </div>
