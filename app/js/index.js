@@ -313,6 +313,10 @@
 
         // add it to the list
         $scope.operations.push(op)
+
+        // update edit mode
+        $scope.edit(op)
+        $scope.save()
       }
 
       $scope.editOpState = 'loading'
