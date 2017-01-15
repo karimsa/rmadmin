@@ -1,0 +1,41 @@
+/**
+ * app/css/index.css - rmadmin
+ */
+
+html,
+body {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-size: 16px;
+  font-family: 'Helvetica', sans-serif;
+}
+
+[ng-click] {
+  cursor: pointer;
+}
+
+.searchForm .form-control {
+    border-right: none;
+    box-shadow: none;
+}
+
+.searchForm .input-group-addon {
+    background: none;
+    box-shadow: none;
+    color: #000;
+}
+
+[data-state] [data-state] { display: none }
+
+[data-state="devices"] [data-state="devices"],
+[data-state="scripts"] [data-state="scripts"],
+[data-state="operations"] [data-state="operations"] {
+  display: block;
+}
+
+.status-label {
+  float: right;
+}

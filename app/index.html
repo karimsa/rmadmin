@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en" ng-app="rmadmin">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Remote Admin</title>
+
+    <link rel="stylesheet" href="../vendor/bootstrap/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/index.css">
+  </head>
+  <body ng-controller="App" data-state="{{state}}">
+    <nav class="navbar navbar-inverse navbar-static-top">
+      <div class="container-fluid">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#nav">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+
+          <span class="navbar-brand">Remote admin</span>
+        </div>
+
+        <div class="collapse navbar-collapse" id="nav">
+          <ul class="navbar-nav nav navbar-right">
+            <li ng-class="{ 'active': state === 'devices' }">
+              <a ng-click="state = 'devices'">Devices</a>
+            </li>
+            <li ng-class="{ 'active': state === 'scripts' }">
+              <a ng-click="state = 'scripts'">Scripts</a>
+            </li>
+            <li ng-class="{ 'active': state === 'operations' }">
+              <a ng-click="state = 'operations'">Operations</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container-fluid">
+      <div class="row-fluid">
+          <div class="col-xs-8">
+            <div class="input-group searchForm">
+              <input type="text" class="form-control" ng-model="hostSearch" placeholder="Search {{state}} (supports regex)">
+              <span class="input-group-addon"><i class="glyphicon glyphicon-search"></i></span>
+            </div>
+          </div>
+
+          <div class="col-xs-4" ng-if="state === 'devices'">
+            <div class="btn-group">
+              <button type="button" class="btn btn-md btn-primary" ng-click="createNew()">Create Device</button>
+              <button type="button" class="btn btn-md btn-success" ng-click="resetCSV()" data-toggle="modal" data-target="#csvModal">Load CSV</button>
+              <button type="button" class="btn btn-md btn-info" data-toggle="modal" data-target="#batchEdit">Edit <i class="glyphicon glyphicon-search"></i></button>
+            </div>
+          </div>
+
+          <div class="col-xs-4" ng-if="state === 'scripts' || state === 'operations'">
+            <div class="btn-group">
+              <button type="button" class="btn btn-md btn-primary" ng-click="createNew()">Create {{ singular(state) }}</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="row-fluid">
+          <div class="col-xs-12">
+            <hr>
+          </div>
+        </div>
+
+      <!-- Devices view -->
+      <div class="row-fluid" data-state="devices">
+        <div class="col-xs-12">
+          <div class="list-group">
+            <button type="button" class="list-group-item" ng-repeat="device in results() track by $index" ng-click="edit(device)"><span class="host" ng-bind="device.host"></span> <span class="label label-{{groupColor(device.group)}} group" ng-bind="device.group"></span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scripts view -->
+      <div class="row-fluid" data-state="scripts">
+        <div class="col-xs-12">
+          <div class="list-group">
+            <button type="button" class="list-group-item" ng-repeat="script in results() track by $index" ng-click="edit(script)" ng-bind="script.name"></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Operations view -->
+      <div class="row-fluid" data-state="operations">
+        <div class="col-xs-12">
+          <div class="list-group">
+            <button type="button" class="list-group-item" ng-repeat="op in results() track by $index" ng-click="edit(op)">Run <span class="label label-primary" ng-bind="op.script"></span> in <span class="label label-{{groupColor(op.group)}} group" ng-bind="op.group"></span> <span class="time" ng-if="op.status !== 'Not run' && op.status !== 'Running'">({{opTime(op)}})</span> <span class="label status-label label-{{statusColor[op.status]}}" ng-bind="op.status"></span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit dialog  -->
+    <div class="modal fade" id="editModal" tabindex="-1" role="dialog">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Editing {{ singular(state) }}</h4>
+          </div>
+          <div class="modal-body" ng-show="state !== 'operations' || (editOpState !== 'loading' && editOpState !== 'results')">
+            <div ng-if="testResults.status" class="alert alert-{{testResults.type}} alert-dismissable" role="alert">
+              <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+              <strong ng-bind="testResults.status"></strong> <span ng-bind="testResults.message"></span>
+            </div>
+
+            <form class="form-horizontal">
+              <div class="form-group" ng-show="state !== 'operations'">
+                <label for="editItemName" class="control-label col-xs-3" ng-bind="newName[state]"></label>
+                <div class="col-xs-8">
+                   <input type="text" class="form-control" ng-model="editItemName" placeholder="{{ newPlaceholder[state] }}">
+                </div>
+              </div>
+
+              <!-- Device editing -->
+              <div data-state="devices">
+                <div class="form-group">
+                  <label for="editDeviceGroup" class="control-label col-xs-3">Group</label>
+                  <div class="col-xs-8">
+                    <select name="editDeviceGroup" id="editDeviceGroup" class="form-control" ng-model="editDeviceGroup">
+                      <option ng-repeat="(groupNo, group) in deviceGroups" value="{{groupNo}}">{{group}}</option>
+                      <option value="-1">Create new group</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-group" ng-show="editDeviceGroup === '-1'">
+                  <label for="editGroupName" class="control-label col-xs-3">Group name</label>
+                  <div class="col-xs-8">
+                     <input type="text" class="form-control" name="editGroupName" ng-model="editGroupName" placeholder="Simple name for your group.">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="port" class="control-label col-xs-3">Port</label>
+                  <div class="col-xs-8">
+                    <input type="number" min="0" max="65536" name="port" id="port" ng-model="port" class="form-control">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="username" class="control-label col-xs-3">Username</label>
+                  <div class="col-xs-8">
+                    <input type="text" name="username" id="username" ng-model="username" class="form-control">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="password" class="control-label col-xs-3">Password</label>
+                  <div class="col-xs-8">
+                    <input type="{{showPassword ? 'text' : 'password'}}" name="password" id="password" ng-model="password" class="form-control">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <div class="col-xs-8 col-xs-offset-3">
+                    <div class="checkbox">
+                      <label>
+                        <input type="checkbox" ng-model="showPassword"> Show password
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Script editing  -->
+              <div data-state="scripts">
+                <div class="alert alert-warning" role="alert">
+                  <strong>Warning</strong> Please ensure that your script terminates. Otherwise the respective operation will hang forever.
+                </div>
+
+                <form class="form-horizontal">
+                  <div class="form-group">
+                    <label for="scriptLang" class="control-label col-xs-3">Language</label>
+                    <div class="col-xs-8">
+                      <select name="scriptLang" id="scriptLang" ng-model="scriptLang" ng-change="updateLang()">
+                        <option ng-repeat="lang in supportedLangs" value="{{lang}}" ng-bind="lang"></option>
+                      </select>
+                    </div>
+                  </div>
+                </form>
+
+                <div id="editor-container"></div>
+              </div>
+
+              <!-- Operation editing -->
+              <div data-state="operations">
+                <form class="form-horizontal">
+                  <div class="form-group">
+                    <label for="editOpScript" class="control-label col-xs-3">Script</label>
+                    <div class="col-xs-8">
+                      <select class="form-control" name="editOpScript" id="editOpScript" ng-model="editOpScript">
+                        <option ng-repeat="(index,script) in scripts" value="{{index}}" ng-bind="script.name"></option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="editOpGroup" class="control-label col-xs-3">Group</label>
+                    <div class="col-xs-8">
+                      <select class="form-control" name="editOpGroup" id="editOpGroup" ng-model="editOpGroup">
+                        <option ng-repeat="(index,group) in deviceGroups" value="{{index}}" ng-bind="group"></option>
+                      </select>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </form>
+          </div>
+
+          <!-- Operation running -->
+          <div class="modal-body" ng-show="state === 'operations' && editOpState === 'loading'">
+            <p class="text-center" ng-bind="opRunStatus"></p>
+            <div class="progress">
+              <div class="progress-bar progress-bar-info progress-bar-striped active" role="progressbar" aria-valuenow="{{opProgress}}" aria-valuemin="0" aria-valuemax="100" style="width: {{opProgress}}%">
+                <span class="sr-only">{{opProgress}}% Complete</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Operation results -->
+          <div class="modal-body" ng-if="state === 'operations' && editOpState === 'results'">
+            <form class="form-horizontal">
+              <div class="form-group">
+                <label for="targetHost" class="control-label col-xs-3">Host</label>
+                <div class="col-xs-8">
+                  <select name="targetHost" id="targetHost" ng-model="targetHost" class="form-control">
+                    <option ng-repeat="(host,results) in editable.results" value="{{host}}" ng-bind="host"></option>
+                  </select>
+                </div>
+              </div>
+            </form>
+
+            <div ng-if="targetHost && editable.results[targetHost] && editable.results[targetHost].status === 'Failed'" class="alert alert-danger alert col-xs-10 col-xs-offset-1" role="alert">
+              <strong>Failure</strong> <span ng-bind="editable.results[targetHost].message"></span>
+            </div>
+
+            <pre ng-if="targetHost && editable.results[targetHost] && editable.results[targetHost].status === 'Successful'" class="results-view col-xs-10 col-xs-offset-1" ng-bind="editable.results[targetHost].message"></pre>
+            <div class="clearfix"></div>
+          </div>
+
+          <div class="modal-footer" ng-if="testingAuth">
+            <div class="progress">
+              <div class="progress-bar progress-bar-striped active" role="progressbar" aria-valuenow="{{authProgess}}" aria-valuemin="0" aria-valuemax="100" style="width: {{authProgess}}%">
+                <span class="sr-only">{{authProgess}}% Complete</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer" ng-if="state !== 'devices' || !testingAuth">
+            <button ng-if="state === 'devices'" type="button" class="btn btn-default" ng-click="testAuth()">Test</button>
+
+            <button ng-if="state === 'operations' && editable.status !== 'Not run' && editable !== 'Running'" type="button" class="btn btn-default" ng-click="viewResults()">View Results</button>
+            <button ng-if="state === 'operations'" type="button" class="btn btn-success" ng-click="runOp()">Run</button>
+
+            <button type="button" class="btn btn-primary" data-dismiss="modal" ng-click="save()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Batch edit  -->
+    <div class="modal fade" id="batchEdit" tabindex="-1" role="dialog">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Batch editing {{ state }}</h4>
+          </div>
+          <div class="modal-body">
+            <form class="form-horizontal">
+              <div data-state="devices">
+                <div class="form-group">
+                  <label for="batchDeviceGroup" class="control-label col-xs-3">Group</label>
+                  <div class="col-xs-8">
+                    <select name="batchDeviceGroup" id="batchDeviceGroup" class="form-control" ng-model="batchDeviceGroup">
+                      <option ng-repeat="(groupNo, group) in deviceGroups" value="{{groupNo}}">{{group}}</option>
+                      <option value="-1">Create new group</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-group" ng-show="batchDeviceGroup === '-1'">
+                  <label for="batchGroupName" class="control-label col-xs-3">Group name</label>
+                  <div class="col-xs-8">
+                     <input type="text" class="form-control" name="batchGroupName" ng-model="batchGroupName" placeholder="Simple name for your group.">
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                  <label for="batchPort" class="control-label col-xs-3">Port</label>
+                  <div class="col-xs-8">
+                    <input type="number" min="0" max="65536" name="batchPort" id="batchPort" ng-model="batchPort" class="form-control">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="batchUsername" class="control-label col-xs-3">Username</label>
+                  <div class="col-xs-8">
+                    <input type="text" name="batchUsername" id="batchUsername" ng-model="batchUsername" class="form-control">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="batchPassword" class="control-label col-xs-3">Password</label>
+                  <div class="col-xs-8">
+                    <input type="{{showPassword ? 'text' : 'password'}}" name="batchPassword" id="batchPassword" ng-model="batchPassword" class="form-control">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <div class="col-xs-8 col-xs-offset-3">
+                    <div class="checkbox">
+                      <label>
+                        <input type="checkbox" ng-model="showPassword"> Show password
+                      </label>
+                    </div>
+                  </div>
+                </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="delete" class="btn btn-danger" ng-click="batchDelete()">Delete</button>
+            <button type="button" class="btn btn-primary" data-dismiss="modal" ng-click="batchSave()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Load CSV dialog -->
+    <div class="modal fade" id="csvModal" tabindex="-1" role="dialog">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Editing {{ singular(state) }}</h4>
+          </div>
+          <div class="modal-body">
+            <form class="form-horizontal" ng-show="csvState === 0 && !csvLoading">
+              <div class="form-group">
+                <label for="csvFile" class="control-label col-xs-3">File</label>
+                <div class="col-xs-8">
+                  <input type="file" class="form-control" name="csvFile" id="csvFile" accept="text/csv">
+                </div>
+              </div>
+              <div class="form-group">
+                <div class="col-xs-10 col-xs-offset-2">
+                  <div class="checkbox">
+                    <label>
+                      <input type="checkbox" name="csvHasHeaders" id="csvHasHeaders" ng-model="csvHasHeaders">
+                      Does the file include headers?
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </form>
+
+            <div ng-show="csvState === 1 && !csvLoading">
+              <form class="form-horizontal">
+                <div class="form-group">
+                  <label for="csvHeaders" class="control-label col-xs-3">Headers of data</label>
+                  <div class="col-xs-8">
+                    <input type="text" class="form-control" name="csvHeaders" id="csvHeaders" ng-model="csvHeaders" placeholder="Each header name separated by a comma (i.e. id, host)">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="csvHostCol" class="control-label col-xs-3">Host column</label>
+                  <div class="col-xs-8">
+                    <input type="text" class="form-control" name="csvHostCol" id="csvHostCol" ng-model="csvHostCol" placeholder="i.e. host">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="csvGroupCol" class="control-label col-xs-3">Group column</label>
+                  <div class="col-xs-8">
+                    <input type="text" class="form-control" name="csvGroupCol" id="csvGroupCol" ng-model="csvGroupCol" placeholder="i.e. group - leave empty for no group">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="csvPortCol" class="control-label col-xs-3">Port column</label>
+                  <div class="col-xs-8">
+                    <input type="text" class="form-control" name="csvPortCol" id="csvPortCol" ng-model="csvPortCol" placeholder="i.e. port">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="csvUserCol" class="control-label col-xs-3">Username column</label>
+                  <div class="col-xs-8">
+                    <input type="text" class="form-control" name="csvUserCol" id="csvUserCol" ng-model="csvUserCol" placeholder="i.e. username">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="csvPassCol" class="control-label col-xs-3">Password column</label>
+                  <div class="col-xs-8">
+                    <input type="text" class="form-control" name="csvPassCol" id="csvPassCol" ng-model="csvPassCol" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;">
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <p class="text-center" ng-if="csvLoading" ng-bind="csvStatus"></p>
+            <div class="progress" ng-if="csvLoading">
+              <div class="progress-bar progress-bar-info progress-bar-striped active" role="progressbar" aria-valuenow="{{csvProgress}}" aria-valuemin="0" aria-valuemax="100" style="width: {{csvProgress}}%">
+                <span class="sr-only">{{csvProgress}}% Complete</span>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary" ng-click="loadCSV()">Load</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>window.$ = window.jQuery = require('../vendor/jquery/dist/jquery.min.js')</script>
+    <script src="../vendor/bootstrap/dist/js/bootstrap.min.js"></script>
+    <script src="../vendor/angular/angular.min.js"></script>
+    <script src="../vendor/angular-animate/angular-animate.min.js"></script>
+    <script src="ace/ace.js"></script>
+    <script src="js/index.js"></script>
+  </body>
+</html>
