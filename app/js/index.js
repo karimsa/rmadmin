@@ -195,6 +195,10 @@
           $scope.$apply()
         })
 
+        conn.on('keyboard-interactive', (name, instructions, instructionsLang, prompts, finish) => {
+          finish([ $scope.password ])
+        })
+
         // try connect
         try {
           conn.connect({
@@ -202,6 +206,7 @@
           , port: $scope.port
           , username: $scope.username
           , password: $scope.password
+          , tryKeyboard: true
           })
         } catch (err) {
           $scope.testResults.type = 'danger'
@@ -387,12 +392,17 @@
               })
             })
 
+            conn.on('keyboard-interactive', (name, instructions, instructionsLang, prompts, finish) => {
+              finish([ device.password ])
+            })
+
             try {
               conn.connect({
                 host: device.host
               , port: device.port
               , username: device.username
               , password: device.password
+              , tryKeyboard: true
               })
             } catch (err) {
               resolve({
