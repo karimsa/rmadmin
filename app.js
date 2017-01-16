@@ -1,6 +1,8 @@
 'use strict'
 
 const { app, BrowserWindow } = require('electron')
+    , url = require('url')
+    , path = require('path')
 
 let win
 app.on('ready', () => {
@@ -11,7 +13,12 @@ app.on('ready', () => {
     height: height * .8
   })
 
-  win.loadURL(`file://${__dirname}/app/index.html`)
+  win.loadURL(url.format({
+    pathname: path.resolve(__dirname, 'app', 'index.html'),
+    protocol: 'file:',
+    slashes: true
+  }))
+
   win.on('close', () => {
     win = null
   })

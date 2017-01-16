@@ -7,6 +7,7 @@
 
   const html = document.documentElement
       , fs = require('fs')
+      , path = require('path')
       , csv = require('csv-stream')
       , moment = require('moment')
       , { Client } = require('ssh2')
@@ -22,7 +23,7 @@
     $scope.scripts      = require('./js/state').scripts
 
     $scope.$watch(debounce(_ =>
-      fs.writeFile(`${__dirname}/js/state.json`, JSON.stringify({
+      fs.writeFile(path.resolve(__dirname, 'js', 'state.json'), JSON.stringify({
         devices: $scope.devices,
         deviceGroups: $scope.deviceGroups,
         scripts: $scope.scripts,
