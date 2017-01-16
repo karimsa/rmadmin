@@ -1,4 +1,3 @@
 node_modules
-vendor
 *.log
 app/js/state.json
