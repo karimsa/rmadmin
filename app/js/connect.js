@@ -33,6 +33,18 @@ module.exports = options => new Promise((resolve, reject) => {
     conn.connect(Object.assign(options, {
       tryKeyboard: true
     , debug: msg => fd.write(msg + '\r\n')
+    , algorithms: {
+        cipher: [
+          'aes128-ctr',
+          'aes128-cbc',
+          'aes192-ctr',
+          'aes256-ctr',
+          'aes128-gcm',
+          'aes128-gcm@openssh.com',
+          'aes256-gcm',
+          'aes256-gcm@openssh.com'
+        ]
+      }
     }))
   } catch (err) {
     reject(errify(err))
