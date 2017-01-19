@@ -10,9 +10,9 @@
       , path = require('path')
       , csv = require('csv-stream')
       , moment = require('moment')
-      , { Client } = require('ssh2')
       , strip = require('strip-ansi')
       , debounce = require('debounce')
+      , connect = require('./js/connect')
 
   app.controller('App', ['$scope', function ($scope) {
     $scope.state = 'devices'
@@ -161,62 +161,30 @@
         message: ''
       }
 
-      setTimeout(() => {
-        var conn = new Client()
-
-        conn.on('ready', () => {
+      // try connect
+      connect({
+        host: $scope.editItemName
+      , port: $scope.port
+      , username: $scope.username
+      , password: $scope.password
+      })
+        .then(conn => {
           $scope.testResults.type = 'success'
           $scope.testResults.status = 'Success'
           $scope.testResults.message = 'Connection was successful.'
-
           conn.end()
 
           $scope.testingAuth = false
           $scope.$apply()
         })
-
-        conn.on('close', hadError => {
-          if (hadError) {
-            $scope.testResults.type = 'danger'
-            $scope.testResults.status = 'Error'
-            $scope.testResults.message = $scope.testResults.message || 'Something went wrong.'
-          }
-
-          $scope.testingAuth = false
-          $scope.$apply()
-        })
-
-        conn.on('error', err => {
+        .catch(err => {
           $scope.testResults.type = 'danger'
           $scope.testResults.status = 'Error'
-          $scope.testResults.message = err.message || String(err)
+          $scope.testResults.message = err
 
           $scope.testingAuth = false
           $scope.$apply()
         })
-
-        conn.on('keyboard-interactive', (name, instructions, instructionsLang, prompts, finish) => {
-          finish([ $scope.password ])
-        })
-
-        // try connect
-        try {
-          conn.connect({
-            host: $scope.editItemName
-          , port: $scope.port
-          , username: $scope.username
-          , password: $scope.password
-          , tryKeyboard: true
-          })
-        } catch (err) {
-          $scope.testResults.type = 'danger'
-          $scope.testResults.status = 'Error'
-          $scope.testResults.message = err.message || String(err)
-
-          $scope.testingAuth = false
-          $scope.$apply()
-        }
-      }, 0)
     }
 
     /**
@@ -338,80 +306,38 @@
         Promise.all(
           $scope.devices.filter(device => {
             return device.group === op.group
-          }).map(device => new Promise((resolve, _) => {
-            let conn = new Client(), resolved = false,
-                output = ''
+          }).map(device => connect(device).then(conn => new Promise((resolve, reject) => conn.shell((err, stream) => {
+            let output = ''
 
-            conn.on('ready', () => {
-              conn.shell((err, stream) => {
-                if (err) {
-                  resolved = true
-                  resolve({
-                    host: device.host,
-                    status: 'Failed',
-                    message: String(err)
-                  })
-                } else {
-                  stream.on('close', () => {
-                    resolved = true
-                    resolve({
-                      host: device.host
-                    , status: 'Successful'
-                    , message: strip(output)
-                    })
-
-                    conn.end()
-                  }).on('data', d =>
-                      output += d.toString('utf8')
-                    )
-                    .stderr.on('data', d =>
-                      output += d.toString('utf8')
-                    )
-
-                  stream.end(script + '\n\n')
-                }
-              })
-            })
-
-            conn.on('close', hadError => {
-              if (!resolved) {
-                resolve({
-                  host: device.host,
-                  status: hadError ? 'Failed' : 'Successful',
-                  message: hadError ? 'Something went wrong.' : ''
-                })
-              }
-            })
-
-            conn.on('error', err => {
+            if (err) {
               resolved = true
               resolve({
                 host: device.host,
                 status: 'Failed',
                 message: String(err)
               })
-            })
-
-            conn.on('keyboard-interactive', (name, instructions, instructionsLang, prompts, finish) => {
-              finish([ device.password ])
-            })
-
-            try {
-              conn.connect({
-                host: device.host
-              , port: device.port
-              , username: device.username
-              , password: device.password
-              , tryKeyboard: true
-              })
-            } catch (err) {
-              resolve({
-                host: device.host,
-                status: 'Failed',
-                message: String(err)
-              })
+            } else {
+              stream.on('close', () => {
+                resolved = true
+                resolve({
+                  host: device.host
+                , status: 'Successful'
+                , message: strip(output)
+                })
+                conn.end()
+              }).on('data', d =>
+                  output += d.toString('utf8')
+                )
+                .stderr.on('data', d =>
+                  output += d.toString('utf8')
+                )
+              stream.end(script + '\n\n')
             }
-          }))
+          })).catch(err => ({
+            host: device.host,
+            status: 'Failed',
+            message: String(err)
+          }))))
         ).then((states) => {
           let failed = 0
           for (let i = 0; i < states.length; ++ i) {
