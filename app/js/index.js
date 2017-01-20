@@ -306,11 +306,10 @@
         Promise.all(
           $scope.devices.filter(device => {
             return device.group === op.group
-          }).map(device => connect(device).then(conn => new Promise((resolve, reject) => conn.shell((err, stream) => {
+          }).map(device => connect(device).then(conn => new Promise((resolve, reject) => conn.shell(false, (err, stream) => {
             let output = ''
 
             if (err) {
-              resolved = true
               resolve({
                 host: device.host,
                 status: 'Failed',
@@ -318,7 +317,6 @@
               })
             } else {
               stream.on('close', () => {
-                resolved = true
                 resolve({
                   host: device.host
                 , status: 'Successful'
